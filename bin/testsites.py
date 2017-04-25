@@ -7,7 +7,6 @@ in the International Geosphere Biosphere Programme (IGBP).
 
 > visualize test sites:
 https://code.earthengine.google.com/a2dc973ddff3556cdfc39c8d2506a188
-
 """
 
 import ee
@@ -94,36 +93,17 @@ class Testsites():
     
     return updated_feature
   
-def quarter_to_monthRange(Q):
-  """
-  returns month range tuple for given quarter of year
-  """
-  monthRange = (1, 12)
-  if Q:
-    try:
-      switch = {'Q1':(1, 3), 'Q2':(4, 6), 'Q3':(7, 9), 'Q4':(10, 12)}
-      monthRange = switch[Q.upper()]
-    except:
-      print('Quarter not recognized!!: {}'.format(Q))
-      print('using default month range...: {}'.format(monthRange))
-  
-  return monthRange
-
-
-
-# USAGE
-#
-# # instantiate Testsites
-# testsites = Testsites()
-
-# # set attributes
-# quarter = 'Q1' # i.e. quarter of year
-# testsites.maxCloudCover = 10
-# testsites.monthRange = quarter_to_monthRange('Q1')
-
-# # find assets
-# fc = testsites.sites.map(testsites.assetFinder)
-
-# # check
-# print(fc.getInfo())
-
+  def quarter_to_monthRange(self, Q):
+    """
+    returns month range tuple for given quarter of year
+    """
+    monthRange = (1, 12)
+    if Q:
+      try:
+        switch = {'Q1':(1, 3), 'Q2':(4, 6), 'Q3':(7, 9), 'Q4':(10, 12)}
+        monthRange = switch[Q.upper()]
+      except:
+        print('Quarter not recognized!!: {}'.format(Q))
+        print('using default month range...: {}'.format(monthRange))
+    
+    return monthRange
