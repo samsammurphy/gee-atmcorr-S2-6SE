@@ -96,7 +96,7 @@ class Atmcorr:
     hourAngle = self.radians(self.date.get('hour').subtract(12).multiply(15))
     sines = self.sin(latitude).multiply(self.sin(d))
     cosines = self.cos(latitude).multiply(self.cos(d)).multiply(self.cos(hourAngle))
-    self.solar_z = sines.add(cosines)
+    self.solar_z = sines.add(cosines).acos()
     return self.solar_z.multiply(self.radToDeg)
   
   def inputFinder(self,feature):
@@ -106,7 +106,7 @@ class Atmcorr:
       'H2O':Atmospheric.water(self.geom,self.date),
       'O3':Atmospheric.ozone(self.geom,self.date),
       'AOT':Atmospheric.aerosol(self.geom,self.date),
-      'solar_z':self.solarZenith()
+      'solar_z':self.solarZenith()     
     })
     return ee.Feature(self.geom,inputVars).copyProperties(feature)
   
@@ -122,8 +122,6 @@ class Atmcorr:
                                   ).start()
     return
 
-
-
 fc = ee.FeatureCollection(ee.Feature(ee.Geometry.Point(-10.811, 35.353),ee.Dictionary({'landcover_type':'water', 
   'assetID':'COPERNICUS/S2/20170115T112411_20170115T112412_T29SLV', 
   'valid': 1,
@@ -132,10 +130,9 @@ fc = ee.FeatureCollection(ee.Feature(ee.Geometry.Point(-10.811, 35.353),ee.Dicti
 
 # debugging
 img = ee.Image('COPERNICUS/S2/20170115T112411_20170115T112412_T29SLV')
-true_solar_zenith = img.get('MEAN_SOLAR_ZENITH_ANGLE').getInfo()
-print('true_solar_zenith',true_solar_zenith)
+print('MEAN_SOLAR_ZENITH_ANGLE',img.get('MEAN_SOLAR_ZENITH_ANGLE').getInfo())
 
 ac = Atmcorr()
-inputs = ac.findInputs(fc)
+inputs = ac.findInputs(fc).getInfo()
   
-print(inputs.getInfo())
+print('Solar zenith at geom: ',inputs['features'][0]['properties']['solar_z'])
