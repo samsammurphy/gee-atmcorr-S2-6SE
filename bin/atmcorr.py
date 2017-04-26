@@ -50,32 +50,54 @@ class Atmcorr:
 
   def __init__(self):
     self.pi = 3.141592653589793
-    self.degToRad = self.pi / 180
-    self.radToDeg = 180 / self.pi
-    #debugging..
-    self.geom = ee.Geometry.Point(0,0)
-    self.date = ee.Date('2017-12-21')
+    self.degToRad = self.pi / 180 # degress to radians
+    self.radToDeg = 180 / self.pi # radians to degress
     return
+  
+  # trigonometric functions
+  def sin(self,x):
+    return ee.Number(x).sin()
+  def cos(self,x):
+    return ee.Number(x).cos()
+  def radians(self,x):
+    return ee.Number(x).multiply(self.degToRad)
+  def degrees(self,x):
+    return ee.Number(x).multiply(self.radToDeg)
+  
+  def dayOfYear(self):
+    jan01 = ee.Date.fromYMD(self.date.get('year'),1,1)
+    self.doy = self.date.difference(jan01,'day').toInt().add(1)
+    return self.doy
+  
+  def solarDeclination(self):
+    """
+    Calculates the solar declination angle (radians)
+    https://en.wikipedia.org/wiki/Position_of_the_Sun
+
+    simple version..
+    d = ee.Number(self.doy).add(10).multiply(0.017214206).cos().multiply(-23.44)
+
+    a more accurate version used here..
+    """
+    N = ee.Number(self.doy).subtract(1)
+    solstice = N.add(10).multiply(0.985653269)
+    eccentricity = N.subtract(2).multiply(0.985653269).multiply(self.degToRad).sin().multiply(1.913679036)
+    axial_tilt = ee.Number(-23.44).multiply(self.degToRad).sin()
+    return solstice.add(eccentricity).multiply(self.degToRad).cos().multiply(axial_tilt).asin()
   
   def solarZenith(self):
     """
-    Calculates solar zenith angle (degrees).
+    Calculates solar zenith angle (degrees)
+    https://en.wikipedia.org/wiki/Solar_zenith_angle
     """
-    # latitude of target (radians)
-    lat = ee.Number(self.geom.centroid().coordinates().get(1)).multiply(self.degToRad)
-    # day of year
-    jan01 = ee.Date.fromYMD(self.date.get('year'),1,1)
-    doy = self.date.difference(jan01,'day').toInt().add(1)
-    # solar declination angle (radians)
-    d = ee.Number(284).add(doy).divide(36.25).multiply(2*self.pi).sin()\
-    .multiply(23.45).multiply(self.degToRad)
-    # hour angle (radians)
-    h = self.date.get('hour').subtract(12).multiply(15).multiply(self.degToRad)
-    # solar zentih angle (radians)
-    #solar_z_rad = math.sin(lat)*math.sin(d) + math.cos(lat)*math.cos(d)*math.cos(h)
-    
-    # solar zenith angle (degrees)
-    return d.multiply(self.radToDeg)#solar_z_rad.multiply(180).divide(self.pi)
+    latitude = self.radians(self.geom.centroid().coordinates().get(1))
+    doy = self.dayOfYear()
+    d = self.solarDeclination()
+    hourAngle = self.radians(self.date.get('hour').subtract(12).multiply(15))
+    sines = self.sin(latitude).multiply(self.sin(d))
+    cosines = self.cos(latitude).multiply(self.cos(d)).multiply(self.cos(hourAngle))
+    self.solar_z = sines.add(cosines)
+    return self.solar_z.multiply(self.radToDeg)
   
   def inputFinder(self,feature):
     self.geom = feature.geometry().centroid()
@@ -84,13 +106,14 @@ class Atmcorr:
       'H2O':Atmospheric.water(self.geom,self.date),
       'O3':Atmospheric.ozone(self.geom,self.date),
       'AOT':Atmospheric.aerosol(self.geom,self.date),
+      'solar_z':self.solarZenith()
     })
     return ee.Feature(self.geom,inputVars).copyProperties(feature)
   
   def findInputs(self, fc):
     self.fc = fc
     self.fc_with_inputs = fc.map(self.inputFinder)
-    return
+    return self.fc_with_inputs # return for debuggong only
   
   def exportInputs(self):
     ee.batch.Export.table.toDrive(collection = self.fc_with_inputs,\
@@ -99,13 +122,20 @@ class Atmcorr:
                                   ).start()
     return
 
+
+
 fc = ee.FeatureCollection(ee.Feature(ee.Geometry.Point(-10.811, 35.353),ee.Dictionary({'landcover_type':'water', 
   'assetID':'COPERNICUS/S2/20170115T112411_20170115T112412_T29SLV', 
   'valid': 1,
   'cloud_cover': 0.0, 
   'date': ee.Date(1484479452457)})))
 
+# debugging
+img = ee.Image('COPERNICUS/S2/20170115T112411_20170115T112412_T29SLV')
+true_solar_zenith = img.get('MEAN_SOLAR_ZENITH_ANGLE').getInfo()
+print('true_solar_zenith',true_solar_zenith)
 
 ac = Atmcorr()
+inputs = ac.findInputs(fc)
   
-print(ac.solarZenith().getInfo())
+print(inputs.getInfo())
