@@ -10,9 +10,10 @@ Usage
 > Please see the jupyter notebook for detailed usage: 
 https://github.com/samsammurphy/gee-atmcorr-S2-batch
 
-> The following is a shorthand version:
+> The following is a short summary:
 
-1) find input variables for atmospheric correction using GEE
+1) find input variables that are require for atmospheric correction
+   of your Google Earth Engine collection
 
 `Atmcorr.findInputs(fc)`
    
@@ -26,14 +27,16 @@ https://github.com/samsammurphy/gee-atmcorr-S2-batch
 3) runs 6S emulator over csv
 
 `Atmcorr.run6SE(csv)` <-- i.e. adds atmospheric correction parameters to
-                               the csv. these parameters are used to 
-                               convert from radiance (or top of atmosphere
-                               reflectance) to surface reflectance
+                               the csv that was exported in step (2) these 
+                               parameters are used to convert from radiance 
+                               (or top of atmosphere reflectance) to surface reflectance
 
-bonus) runs Py6S (i.e. original source code) over csv
+Optionally
+----------
 
-`Atmcorr.runPy6S(csv) `  <-- i.e. you can optional run 6S (through Py6S). this
-                                   is much slower but might be useful, e.g., if
+runs Py6S (i.e. original source code) over csv
+
+`Atmcorr.runPy6S(csv) `  <-- i.e.  this is much slower but might be useful if, e.g.
                                    i) your image collection is small (< 50 images)
                                    ii) your want to compare 6S and the 6S emulator
 
