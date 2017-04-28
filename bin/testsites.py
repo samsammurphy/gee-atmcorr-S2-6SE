@@ -97,11 +97,3 @@ class Testsites():
   def get(self):
     fc = self.sites
     return fc.map(self.assetFinder)
-  
-
-# from atmcorr import Atmcorr
-# testsites = Testsites()
-# fc = testsites.get()
-# fc_with_inputs = Atmcorr.findInputs(fc)
-# task = Atmcorr.exportInputs(fc_with_inputs)
-# task.start()
