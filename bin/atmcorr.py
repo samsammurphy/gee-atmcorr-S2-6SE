@@ -7,132 +7,129 @@ Google Earth Engine (GEE).
 Usage
 -----
 
-> Please see the jupyter notebook for detailed usage: 
+Please see the jupyter notebook for detailed usage: 
 https://github.com/samsammurphy/gee-atmcorr-S2-batch
-
-> The following is a short summary:
-
-1) find input variables that are require for atmospheric correction
-   of your Google Earth Engine collection
-
-`Atmcorr.findInputs(fc)`
-   
-2) export inputs to .csv  <-- i.e. allows processing of large collections
-                                   without using .getInfo() too many times
-                                   and allows results to be saved for
-                                   upload to fusion table
-
-`Atmcorr.exportInputs()`
-
-3) runs 6S emulator over csv
-
-`Atmcorr.run6SE(csv)` <-- i.e. adds atmospheric correction parameters to
-                               the csv that was exported in step (2) these 
-                               parameters are used to convert from radiance 
-                               (or top of atmosphere reflectance) to surface reflectance
-
-Optionally
-----------
-
-runs Py6S (i.e. original source code) over csv
-
-`Atmcorr.runPy6S(csv) `  <-- i.e.  this is much slower but might be useful if, e.g.
-                                   i) your image collection is small (< 50 images)
-                                   ii) your want to compare 6S and the 6S emulator
 
 """
 import ee
 from atmospheric import Atmospheric
+from astronomical import Astronomical
+import pandas as pd
+import math
+import time
+from Py6S import *
 
-ee.Initialize()
+# ee.Initialize()
 
 class Atmcorr:
-
-  def __init__(self):
-    self.pi = 3.141592653589793
-    self.degToRad = self.pi / 180 # degress to radians
-    self.radToDeg = 180 / self.pi # radians to degress
-    return
   
-  # trigonometric functions
-  def sin(self,x):
-    return ee.Number(x).sin()
-  def cos(self,x):
-    return ee.Number(x).cos()
-  def radians(self,x):
-    return ee.Number(x).multiply(self.degToRad)
-  def degrees(self,x):
-    return ee.Number(x).multiply(self.radToDeg)
-  
-  def dayOfYear(self):
-    jan01 = ee.Date.fromYMD(self.date.get('year'),1,1)
-    self.doy = self.date.difference(jan01,'day').toInt().add(1)
-    return self.doy
-  
-  def solarDeclination(self):
+  def inputFinder(feature):
     """
-    Calculates the solar declination angle (radians)
-    https://en.wikipedia.org/wiki/Position_of_the_Sun
-
-    simple version..
-    d = ee.Number(self.doy).add(10).multiply(0.017214206).cos().multiply(-23.44)
-
-    a more accurate version used here..
+    Finds the inputs for atmospheric correction, this
+    function will be mapped over a feature collection
     """
-    N = ee.Number(self.doy).subtract(1)
-    solstice = N.add(10).multiply(0.985653269)
-    eccentricity = N.subtract(2).multiply(0.985653269).multiply(self.degToRad).sin().multiply(1.913679036)
-    axial_tilt = ee.Number(-23.44).multiply(self.degToRad).sin()
-    return solstice.add(eccentricity).multiply(self.degToRad).cos().multiply(axial_tilt).asin()
-  
-  def solarZenith(self):
-    """
-    Calculates solar zenith angle (degrees)
-    https://en.wikipedia.org/wiki/Solar_zenith_angle
-    """
-    latitude = self.radians(self.geom.centroid().coordinates().get(1))
-    doy = self.dayOfYear()
-    d = self.solarDeclination()
-    hourAngle = self.radians(self.date.get('hour').subtract(12).multiply(15))
-    sines = self.sin(latitude).multiply(self.sin(d))
-    cosines = self.cos(latitude).multiply(self.cos(d)).multiply(self.cos(hourAngle))
-    self.solar_z = sines.add(cosines).acos()
-    return self.solar_z.multiply(self.radToDeg)
-  
-  def inputFinder(self,feature):
-    self.geom = feature.geometry().centroid()
-    self.date = ee.Date(feature.get('date'))
+    geom = feature.geometry().centroid()
+    date = ee.Date(feature.get('date'))
     inputVars = ee.Dictionary({
-      'H2O':Atmospheric.water(self.geom,self.date),
-      'O3':Atmospheric.ozone(self.geom,self.date),
-      'AOT':Atmospheric.aerosol(self.geom,self.date),
-      'solar_z':self.solarZenith()     
+      'H2O':Atmospheric.water(geom,date),
+      'O3':Atmospheric.ozone(geom,date),
+      'AOT':Atmospheric.aerosol(geom,date),
+      'solar_z':Astronomical.solarZenith(geom,date)     
     })
-    return ee.Feature(self.geom,inputVars).copyProperties(feature)
+    return ee.Feature(geom,inputVars).copyProperties(feature)
   
-  def findInputs(self, fc):
-    self.fc = fc
-    self.fc_with_inputs = fc.map(self.inputFinder)
-    return self.fc_with_inputs # return for debuggong only
+  def findInputs(fc):
+    """
+    Find atmcorr inputs for a given feature collection
+    """
+    return fc.map(Atmcorr.inputFinder)
   
-  def exportInputs(self):
-    ee.batch.Export.table.toDrive(collection = self.fc_with_inputs,\
+  def exportInputs(fc_with_inputs):
+    """
+    Export atmcorr inputs to .csv file, i.e. allows batch
+    processing by avoiding repeated .getInfo() calls
+    """
+    task = ee.batch.Export.table.toDrive(collection = fc_with_inputs,\
                                   description = 'exporting atmcorr inputs to csv..',\
                                   fileNamePrefix = 'atmcorr'
-                                  ).start()
-    return
+                                  )
+    return task
 
-fc = ee.FeatureCollection(ee.Feature(ee.Geometry.Point(-10.811, 35.353),ee.Dictionary({'landcover_type':'water', 
-  'assetID':'COPERNICUS/S2/20170115T112411_20170115T112412_T29SLV', 
-  'valid': 1,
-  'cloud_cover': 0.0, 
-  'date': ee.Date(1484479452457)})))
+  def run6S(csv_path):
 
-# debugging
-img = ee.Image('COPERNICUS/S2/20170115T112411_20170115T112412_T29SLV')
-print('MEAN_SOLAR_ZENITH_ANGLE',img.get('MEAN_SOLAR_ZENITH_ANGLE').getInfo())
+    print('running 6S..')
+    
+    t = time.time()
 
-ac = Atmcorr()
-inputs = ac.findInputs(fc).getInfo()
-  
-print('Solar zenith at geom: ',inputs['features'][0]['properties']['solar_z'])
+    # initiate 6S object with constants
+    s = SixS()
+    s.altitudes.set_sensor_satellite_level()
+    s.aero_profile = AeroProfile.__dict__['Continental']
+    s.geometry = Geometry.User()
+    s.geometry.view_z = 0
+    s.geometry.month = 1 # Earth-sun distance correction is later
+    s.geometry.day = 4   # applied from perihelion, i.e. Jan 4th.  
+    
+    # run 6S over input variables
+    inputs = pd.read_csv(csv_path)
+    outputs = []
+    for i in range(inputs.shape[0]):
+      
+      # update 6S variables
+      s.geometry.solar_z = inputs['solar_z'][i]
+      s.atmos_profile = AtmosProfile.UserWaterAndOzone(inputs['H2O'][i],inputs['O3'][i])
+      s.aot550 = inputs['AOT'][i]
+      s.altitudes.set_target_custom_altitude(inputs['altitude'][i])
+      
+      """
+      Py6S user interface!
+      """
+      #s.wavelength = spectrum
+      
+      # run 6S
+      s.run()
+      
+      # solar irradiance
+      Edir = s.outputs.direct_solar_irradiance             # direct solar irradiance
+      Edif = s.outputs.diffuse_solar_irradiance            # diffuse solar irradiance
+      E = Edir + Edif                                      # total solar irraduance
+      # transmissivity
+      absorb  = s.outputs.trans['global_gas'].upward       # absorption transmissivity
+      scatter = s.outputs.trans['total_scattering'].upward # scattering transmissivity
+      tau2 = absorb*scatter                                # transmissivity (from surface to sensor)
+      # path radiance
+      Lp   = s.outputs.atmospheric_intrinsic_radiance      # path radiance
+      # correction coefficients for this configuration
+      a = Lp
+      b = (tau2*E)/math.pi
+      outputs.append((Edir, Edif, tau2, Lp, a, b))
+
+      """
+      list comprehension to add outputs to df then export
+
+      dadaa!  ?   :)
+      """
+   
+    print('time check {}'.format(time.time()-t))
+
+"""
+Step 1
+"""
+# from testsites import Testsites
+# testsites = Testsites()
+# fc = testsites.get()
+# fc_with_inputs = Atmcorr.findInputs(fc)
+# task = Atmcorr.exportInputs(fc_with_inputs)
+# task.start()
+
+"""
+Step 2
+"""
+# download the csv file locally 
+Atmcorr.run6S('testsites.csv')
+
+"""
+Step 3
+"""
+# upload to fusion table
+# use in GEE
