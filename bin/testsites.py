@@ -50,21 +50,24 @@ class Testsites():
     ee.Feature(ee.Geometry.Point(-43.86, 67.27),{'landcover_type':'snow_and_ice'}),
     ee.Feature(ee.Geometry.Point(21.094, 25.602),{'landcover_type':'barren_or_sparsely_vegetated'})
   ])
-
-
-  def imageProperties(self, img):
+   
+  def getProperties(self, img, geom):
     """
-    gets properties from image (e.g. assetID, etc.) 
+    gets properties for this img and geom (i.e. assetID, altitude, etc.)
     """
     
     imgID = img.get('system:index')
     assetID = ee.String(self.imageCollectionID+'/').cat(ee.String(imgID))
-    
+
+    global_dem = ee.Image('USGS/GMTED2010').rename(['altitude'])
+    altitude =  global_dem.reduceRegion(ee.Reducer.mean(),geom)
+
     properties = ee.Dictionary({
       'assetID':assetID,
       'date':ee.Date(img.get('system:time_start')),
-      'cloud_cover':ee.Number(img.get('CLOUDY_PIXEL_PERCENTAGE')),
-      'valid':1
+      'cloud_cover':ee.Number(img.get('CLOUDY_PIXEL_PERCENTAGE')),# remove later (i.e. Sentinel 2 specific)
+      'valid':1,
+      'altitude':ee.Number(altitude.get('altitude'))
       })
     
     return properties
@@ -85,25 +88,20 @@ class Testsites():
     img = ee.Image(images.first())
     
     properties = ee.Algorithms.If(img,\
-      self.imageProperties(img),\
+      self.getProperties(img, geom),\
       ee.Dictionary({'assetID':'None','valid':0})\
       )
     
-    updated_feature = ee.Feature(geom,properties).copyProperties(feature)
-    
-    return updated_feature
+    return ee.Feature(geom,properties).copyProperties(feature)
   
-  def quarter_to_monthRange(self, Q):
-    """
-    returns month range tuple for given quarter of year
-    """
-    monthRange = (1, 12)
-    if Q:
-      try:
-        switch = {'Q1':(1, 3), 'Q2':(4, 6), 'Q3':(7, 9), 'Q4':(10, 12)}
-        monthRange = switch[Q.upper()]
-      except:
-        print('Quarter not recognized!!: {}'.format(Q))
-        print('using default month range...: {}'.format(monthRange))
-    
-    return monthRange
+  def get(self):
+    fc = self.sites
+    return fc.map(self.assetFinder)
+  
+
+# from atmcorr import Atmcorr
+# testsites = Testsites()
+# fc = testsites.get()
+# fc_with_inputs = Atmcorr.findInputs(fc)
+# task = Atmcorr.exportInputs(fc_with_inputs)
+# task.start()
