@@ -13,6 +13,7 @@ https://github.com/samsammurphy/gee-atmcorr-S2-batch
 """
 import ee
 import sys
+import os
 from atmospheric import Atmospheric
 from astronomical import Astronomical
 import pandas as pd
@@ -20,8 +21,6 @@ import numpy as np
 import math
 import time
 from Py6S import *
-
-# ee.Initialize()
 
 class Atmcorr:
   
@@ -42,31 +41,70 @@ class Atmcorr:
   
   def findInputs(fc):
     """
-    Find atmcorr inputs for a given feature collection
+    Maps inputFinder() over a feature collection
     """
+
+    ee.Initialize()
+
     return fc.map(Atmcorr.inputFinder)
   
-  def exportInputs(fc_with_inputs):
+  def exportInputs(fc_with_inputs, start=False, fileName=None):
     """
-    Export atmcorr inputs to .csv file. this allows 'batch'
-    processing by avoiding repeated .getInfo() calls
+    Export atmcorr inputs to .csv file; this allows batch
+    processing by avoiding .getInfo() (NB. we need the 
+    atmcorr inputs client-side to run the atmcorr code)
     """
-    task = ee.batch.Export.table.toDrive(collection = fc_with_inputs,\
-                                  description = 'exporting atmcorr inputs to csv..',\
-                                  fileNameprefix = 'atmcorr'
-                                  )
-    return task
-    
-  def run6S(csv_path, predefined=None, start_wavelength=None, end_wavelength=None, spectral_filter=None):
 
-    print('running 6S..')
+    ee.Initialize()
+
+    if fileName is None:
+      fileName = 'atmcorr_'+strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+
+    task = ee.batch.Export.table.toDrive(collection = fc_with_inputs,description = fileName)
+  
+    if start:
+      task.start()
+      return
+    else:
+      return task
+  
+  def run6S(csv_path, predefined_wavelength=None, start_wavelength=None, \
+  end_wavelength=None, spectral_filter=None, keepOriginal=False):
+    """
+    Run the (full and glorious) 6S radiative transfer code through the Py6S interface.
+    
+    example:
+    $ from atmcorr import Atmcorr
+    $ Atmcorr.run6S('assetIDs_with_atmcorr_inputs.csv', predefined_wavelength = 'S2A_MSI_01')
+    
+    PROs
+    - accurate 
+    - reliable
+
+    CONs
+    - very slow
+    
+    Processing of large image collections may require 6S emulator!
+    """
+    
+    print('running 6S.. (this may take a while..)')
+    
+    # read inputs from file
+    inputs = pd.read_csv(csv_path)
+
+    # remove system:index column
+    if 'system:index' in inputs:
+      inputs.drop('system:index', axis=1,inplace=True)
     
     t = time.time()
-
-    # wavelength (predefined or user-defined ?)
-    if predefined:
-      wavelength = Wavelength(PredefinedWavelengths.__dict__[predefined])
-      prefix = predefined # <-- i.e. prefix for column name for .csv (e.g. 'S2A_MSI_01')
+    
+    # wavelength 
+    # - predefined_wavelength = known satellite mission
+    # - user-defined = any other wavelength selection, i.e: 'scalar' or '2-tuple +/ filter function'
+    # prefix = column name for .csv
+    if predefined_wavelength:
+      wavelength = Wavelength(PredefinedWavelengths.__dict__[predefined_wavelength])
+      prefix = predefined_wavelength
     if start_wavelength:
       wavelength = Wavelength(start_wavelength, end_wavelength=end_wavelength, filter=spectral_filter)
       prefix = ['w',str(start_wavelength)]
@@ -75,19 +113,18 @@ class Atmcorr:
       if spectral_filter:
         prefix.append('f')
       prefix = '_'.join(prefix)
-
+    
     # initiate 6S object with constants
     s = SixS()
     s.altitudes.set_sensor_satellite_level()
     s.aero_profile = AeroProfile.__dict__['Continental']
     s.geometry = Geometry.User()
     s.geometry.view_z = 0
-    s.geometry.month = 1 # Earth-sun distance correction is later
-    s.geometry.day = 4   # applied from perihelion, i.e. Jan 4th.  
+    s.geometry.month = 1 # Earth-sun distance correction is later..
+    s.geometry.day = 4   # ..applied from perihelion, i.e. Jan 4th.  
     s.wavelength = wavelength
     
     # run 6S over input variables
-    inputs = pd.read_csv(csv_path)
     outputs = []
     for i in range(inputs.shape[0]):
       
@@ -112,18 +149,18 @@ class Atmcorr:
       # correction coefficients for this configuration
       a = Lp
       b = (tau2*(Edir + Edif))/math.pi
-      outputs.append((a, b))
-    
+      outputs.append((a, b))      
+
     print('time check {}'.format(time.time()-t))
     
-    # add to dataframe
-    inputs[prefix+'_6S_a'] = [x[0] for x in outputs]
-    inputs[prefix+'_6S_b'] = [x[1] for x in outputs]
+    # keep an original copy?
+    if keepOriginal:
+      inputs.to_csv(csv_path+'_(original)', index=False)
 
-    # export updated dataframe to .csv
-    outfile = os.path.basename(csv_path)[:-4]+'_updated.csv'
-    outpath = os.path.join(os.path.dirname(csv_path),outfile)
-    inputs.to_csv(outpath)
+    # add correction coefficients to new dataframe
+    new_df = inputs
+    new_df[prefix+'_6S_a'] = [x[0] for x in outputs]
+    new_df[prefix+'_6S_b'] = [x[1] for x in outputs]
 
-# e.g.
-# Atmcorr.run6S('testsites.csv', predefined = 'S2A_MSI_01')
+    # export new dataframe to .csv (i.e. append correction coeffs. to file)
+    new_df.to_csv(csv_path, index=False)
