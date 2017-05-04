@@ -1,20 +1,21 @@
 """
-testsites.py, Sam Murphy (2017-04-24)
+targets.py, Sam Murphy (2017-04-24)
 
-Creates a feature collection of assetIDs for Sentinel 2 images
-over tests sites that represent one of each of the landcover types 
-in the International Geosphere Biosphere Programme (IGBP).
+Finds image assetIDs for a collection of targets.
 
-> visualize test sites:
-https://code.earthengine.google.com/a2dc973ddff3556cdfc39c8d2506a188
+
+default image collection = Sentinel 2 (i.e. 'COPERNICUS/S2')
+
+default targets = examples landcovers from International Geosphere 
+Biosphere Programme (IGBP): https://code.earthengine.google.com/a2dc973ddff3556cdfc39c8d2506a188
 """
 
 import ee
 ee.Initialize()
 
-class Testsites():
+class Targets():
   """
-  This class finds asset IDs for a collection of test sites (i.e. features)
+  This class finds asset IDs for a collection of target sites (i.e. features)
   
   It can filter using:
     1) maximum cloud cover percentage
