@@ -58,7 +58,7 @@ class Atmcorr:
     ee.Initialize()
 
     if fileName is None:
-      fileName = 'atmcorr_'+strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+      fileName = 'atmcorr_'+time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 
     task = ee.batch.Export.table.toDrive(collection = fc_with_inputs,description = fileName)
   
@@ -68,10 +68,28 @@ class Atmcorr:
     else:
       return task
   
-  def run6S(csv_path, predefined_wavelength=None, start_wavelength=None, \
-  end_wavelength=None, spectral_filter=None, keepOriginal=False):
+  def handle_GEE_columns(df):
     """
-    Run the (full and glorious) 6S radiative transfer code through the Py6S interface.
+    Handles special GEE column names: 'system:index' and '.geo'
+
+    df = pandas.DataFrame (from reading GEE .csv)
+    """
+    
+    # remove system:index column
+    if 'system:index' in df:
+      df.drop('system:index', axis=1, inplace=True)
+
+    # rename '.geo' column to 'geometry'
+    if '.geo' in df:
+      df['geometry'] = df['.geo']
+      df.drop('.geo', axis=1, inplace=True)
+    
+    return df
+      
+  def run6S(csv_path, predefined_wavelength=None, start_wavelength=None, \
+    end_wavelength=None, spectral_filter=None, keepOriginal=False):
+    """
+    Run the full 6S radiative transfer code through the Py6S interface.
     
     example:
     $ from atmcorr import Atmcorr
@@ -92,9 +110,8 @@ class Atmcorr:
     # read inputs from file
     inputs = pd.read_csv(csv_path)
 
-    # remove system:index column
-    if 'system:index' in inputs:
-      inputs.drop('system:index', axis=1,inplace=True)
+    # handle special GEE columns
+    inputs = Atmcorr.handle_GEE_columns(inputs)
     
     t = time.time()
     
