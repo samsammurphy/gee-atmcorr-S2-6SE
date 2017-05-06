@@ -14,6 +14,7 @@ https://github.com/samsammurphy/gee-atmcorr-S2-batch
 import ee
 import sys
 import os
+import pickle
 from atmospheric import Atmospheric
 from astronomical import Astronomical
 import pandas as pd
@@ -24,29 +25,29 @@ from Py6S import *
 
 class Atmcorr:
   
-  def inputFinder(feature):
+  def inputFinder(image):
     """
     Finds the inputs for atmospheric correction, this
-    function will be mapped over a feature collection
+    function will be mapped over an image collection
     """
-    geom = feature.geometry().centroid()
-    date = ee.Date(feature.get('date'))
+    geom = image.geometry().centroid()
+    date = ee.Date(image.get('system:time_start'))
     inputVars = ee.Dictionary({
       'H2O':Atmospheric.water(geom,date),
       'O3':Atmospheric.ozone(geom,date),
       'AOT':Atmospheric.aerosol(geom,date),
       'solar_z':Astronomical.solarZenith(geom,date)     
     })
-    return ee.Feature(geom,inputVars).copyProperties(feature)
+    return ee.Feature(geom,inputVars)#.copyProperties(image)
   
-  def findInputs(fc):
+  def findInputs(ic):
     """
-    Maps inputFinder() over a feature collection
+    Maps inputFinder() over image collection
     """
 
     ee.Initialize()
 
-    return fc.map(Atmcorr.inputFinder)
+    return ic.map(Atmcorr.inputFinder)
   
   def exportInputs(fc_with_inputs, start=False, fileName=None):
     """
@@ -68,13 +69,15 @@ class Atmcorr:
     else:
       return task
   
-  def handle_GEE_columns(df):
+  def read_csv(csv_path):
     """
-    Handles special GEE column names: 'system:index' and '.geo'
-
-    df = pandas.DataFrame (from reading GEE .csv)
+    Reads csv to pandas dataframe and handles special 
+    GEE column names: 'system:index' and '.geo'
     """
     
+    # read csv file to dataframe
+    df = pd.read_csv(csv_path)
+
     # remove system:index column
     if 'system:index' in df:
       df.drop('system:index', axis=1, inplace=True)
@@ -108,10 +111,7 @@ class Atmcorr:
     print('running 6S.. (this may take a while..)')
     
     # read inputs from file
-    inputs = pd.read_csv(csv_path)
-
-    # handle special GEE columns
-    inputs = Atmcorr.handle_GEE_columns(inputs)
+    inputs = Atmcorr.read_csv(csv_path)
     
     t = time.time()
     
@@ -181,3 +181,39 @@ class Atmcorr:
 
     # export new dataframe to .csv (i.e. append correction coeffs. to file)
     new_df.to_csv(csv_path, index=False)
+
+  def run6SE(csv_path, ilut_filepath):
+    """
+    6S Emulator. A fast emulation of the 6S radiative transfer code using 
+    interpolated lookup tables.
+    
+    To build your own look up tables please see this repo:
+    https://github.com/samsammurphy/6S_emulator
+    """
+    
+    # read inputs from file
+    inputs = Atmcorr.read_csv(csv_path)
+
+    # load look up tables
+    try:
+      ilut = pickle.load(open(ilut_filepath,'rb'))
+    except:
+      print("Could not open ilut file:\n",ilut_path)
+      return
+    
+    outputs = []
+    for i in range(inputs.shape[0]):
+      coeffs = ilut(inputs['solar_z'][i],inputs['H2O'][i],inputs['O3'][i],inputs['AOT'][i],inputs['altitude'][i]/1000)
+      outputs.append(coeffs)   
+
+    # prefix is the name of the iLUT
+    prefix = os.path.basename(ilut_filepath).split('.')[0]
+
+    # add correction coefficients to new dataframe
+    new_df = inputs
+    new_df[prefix+'_6SE_a'] = [x[0] for x in outputs]
+    new_df[prefix+'_6SE_b'] = [x[1] for x in outputs]
+
+    # export new dataframe to .csv (i.e. append correction coeffs to file)
+    new_df.to_csv(csv_path, index=False)
+
