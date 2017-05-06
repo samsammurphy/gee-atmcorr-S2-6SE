@@ -25,7 +25,6 @@ class FindAssets():
     self.startDate = '1900-01-01'
     self.stopDate = '2100-01-01'
     self.monthRange = (1,12)# i.e. default = whole year 
-    self.maxCloudCover = 100# %
     self.sites = ee.FeatureCollection([
     ee.Feature(ee.Geometry.Point(-10.811, 35.353),{'landcover_type':'water'}),
     ee.Feature(ee.Geometry.Point(14.2575, 60.0484),{'landcover_type':'evergreen_needleleaf_forest'}),
@@ -60,7 +59,7 @@ class FindAssets():
     properties = ee.Dictionary({
       'assetID':assetID,
       'date':ee.Date(img.get('system:time_start')),
-      'cloud_cover':ee.Number(img.get('CLOUDY_PIXEL_PERCENTAGE')),# remove later (i.e. Sentinel 2 specific)
+      #'cloud_cover':ee.Number(img.get('CLOUDY_PIXEL_PERCENTAGE')),#<-- Sentinel 2 specific
       'valid':1,
       'altitude':ee.Number(altitude.get('altitude'))
       })
@@ -78,9 +77,11 @@ class FindAssets():
       .filterBounds(geom)\
       .filterDate(ee.Date(self.startDate),ee.Date(self.stopDate))\
       .filter(ee.Filter.calendarRange(self.monthRange[0],self.monthRange[1],'month'))
-      #todo (maybe) allow user defined filters..
-      #e.g.: Sentinel 2 example = .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',self.maxCloudCover))
-    
+
+    # user define filters
+    if self.useFilters:
+      images = images.filter(self.useFilters)
+
     img = ee.Image(images.first())
     
     properties = ee.Algorithms.If(img,\
