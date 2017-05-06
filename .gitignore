@@ -1,5 +1,8 @@
 # added by Sam Murphy
-files/
+# ignore contents of files/ directory
+files/*
+# except this file (need at least some contents for folder to be commited)
+!files/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
