@@ -25,6 +25,9 @@ from Py6S import *
 
 class Atmcorr:
   
+  # Load global digital elevation model
+  global_dem = ee.Image('USGS/GMTED2010').rename(['alt'])
+
   def inputFinder(image):
     """
     Finds the inputs for atmospheric correction, this
@@ -36,7 +39,8 @@ class Atmcorr:
       'H2O':Atmospheric.water(geom,date),
       'O3':Atmospheric.ozone(geom,date),
       'AOT':Atmospheric.aerosol(geom,date),
-      'solar_z':Astronomical.solarZenith(geom,date)     
+      'solar_z':Astronomical.solarZenith(geom,date)   ,
+      'altitude':ee.Number(Atmcorr.global_dem.reduceRegion(ee.Reducer.mean(),geom).get('alt'))  
     })
     return ee.Feature(geom,inputVars)#.copyProperties(image)
   
@@ -44,7 +48,6 @@ class Atmcorr:
     """
     Maps inputFinder() over image collection
     """
-
     ee.Initialize()
 
     return ic.map(Atmcorr.inputFinder)
