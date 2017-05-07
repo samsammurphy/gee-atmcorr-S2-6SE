@@ -52,4 +52,4 @@ class Astronomical:
     sines = Astronomical.sin(latitude).multiply(Astronomical.sin(d))
     cosines = Astronomical.cos(latitude).multiply(Astronomical.cos(d)).multiply(Astronomical.cos(hourAngle))
     solar_z = sines.add(cosines).acos()
-    return solar_z.multiply(Astronomical.radToDeg)
+    return 'need to check this out'#solar_z.multiply(Astronomical.radToDeg)
