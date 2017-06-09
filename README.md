@@ -1,2 +1,5 @@
 # gee-atmcorr-S2-batch
-atmospheric correction of sentinel 2 in batch using google earth engine
+
+Atmospheric correction of Sentinel 2 image collections in Google Earth Engine
+
+see the Jupyter Notebook for example usage
