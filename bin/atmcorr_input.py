@@ -14,9 +14,6 @@ class Atmcorr_input:
   # global elevation (kilometers)
   elevation = ee.Image('USGS/GMTED2010').divide(1000)
 
-  # geometry (will use image centroid if undefined)
-  geom = False
-
   # day-of-year from date
   def doy_from_date(date):
     jan01 = ee.Date.fromYMD(date.get('year'),1,1)
