@@ -24,8 +24,6 @@ class SixS_emulator():
   
   Output: > correction coefficients (a, b)
 
-  where,
-
   surface_reflectance = a * at_sensor_radiance + b
   """
 

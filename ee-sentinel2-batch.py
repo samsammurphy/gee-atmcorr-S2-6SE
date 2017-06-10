@@ -13,6 +13,7 @@ from sixs_emulator_ee_sentinel2_batch import SixS_emulator
 from atmcorr_input import Atmcorr_input
 from atmospheric_correction import atmospheric_correction
 from radiance import radiance_from_TOA
+from interpolated_LUTs import Interpolated_LUTs
 
 # a place and a mission
 geom = ee.Geometry.Point(-157.816222, 21.297481)
@@ -21,14 +22,19 @@ mission = 'COPERNICUS/S2'
 # image collection
 ic = ee.ImageCollection(mission)\
   .filterBounds(geom)\
-  .filterDate('2017-01-01','2017-06-12')\
+  .filterDate('2017-01-01','2017-02-01')\
   .filter(ee.Filter.lt('MEAN_SOLAR_ZENITH_ANGLE',75))
 
 # 6S emulator
 se = SixS_emulator(mission)
 
-# load interpolate look up tables
-se.load_iLUTs('/home/sam/git/github/gee-atmcorr-S2-batch/files/iLUTs/S2A_MSI/Continental/view_zenith_0/')
+# load interpolate look up tables 
+iLUTs = Interpolated_LUTs('COPERNICUS/S2')
+# if this is first time will have to download and interpolate
+iLUTs.download_LUTs()
+iLUTs.interpolate_LUTs()
+# otherwise can just load into the emulator from local files
+se.iLUTs = iLUTs.get()
 
 # extract atmcorr inputs as feature collection
 Atmcorr_input.geom = geom  # specific target location (would use image centroid otherwise)
