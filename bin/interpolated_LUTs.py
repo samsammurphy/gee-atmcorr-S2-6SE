@@ -30,7 +30,10 @@ class Interpolated_LUTs:
     # Earth Engine mission to Py6S sensor name
     self.py6S_sensor_names = {
       'COPERNICUS/S2':'S2A_MSI',
-      'LANDSAT/LC8_L1T':'LANDSAT_OLI'
+      'LANDSAT/LC8_L1T':'LANDSAT_OLI',
+      'LANDSAT/LE7_L1T':'LANDSAT_ETM',
+      'LANDSAT/LT5_L1T':'LANDSAT_TM',
+      'LANDSAT/LT4_L1T':'LANDSAT_TM'
     }
     self.py6S_sensor = self.py6S_sensor_names[self.mission]
     
@@ -157,13 +160,24 @@ class Interpolated_LUTs:
     if not os.path.isdir(zip_dir):
       os.makedirs(zip_dir)
 
-    # download LUTs zip file
+    # URLs for Sentinel 2 and Landsats (dl=1 is important)
+    getURL = {
+      'S2A_MSI':"https://www.dropbox.com/s/aq873gil0ph47fm/S2A_MSI.zip?dl=1",
+      'LANDSAT_OLI':'https://www.dropbox.com/s/49ikr48d2qqwkhm/LANDSAT_OLI.zip?dl=1',
+      'LANDSAT_ETM':'https://www.dropbox.com/s/z6vv55cz5tow6tj/LANDSAT_ETM.zip?dl=1',
+      'LANDSAT_TM':'https://www.dropbox.com/s/uyiab5r9kl50m2f/LANDSAT_TM.zip?dl=1',
+      'LANDSAT_TM':'https://www.dropbox.com/s/uyiab5r9kl50m2f/LANDSAT_TM.zip?dl=1'
+    }
+
+    # download LUTs data
     print('Downloading look up table (LUT) zip file..')
-    url = "https://www.dropbox.com/s/aq873gil0ph47fm/S2A_MSI.zip?dl=1"  # dl=1 is important
+    url = getURL[self.py6S_sensor]
     u = urllib.request.urlopen(url)
     data = u.read()
     u.close()
-    zip_filepath = os.path.join(zip_dir,'S2A_MSI.zip')
+    
+    # save to zip file
+    zip_filepath = os.path.join(zip_dir,self.py6S_sensor+'.zip')
     with open(zip_filepath, "wb") as f :
         f.write(data)
 
@@ -178,7 +192,8 @@ class Interpolated_LUTs:
     print('Done: LUT files available locally')
 
 
-# iLUTs = Interpolated_LUTs('COPERNICUS/S2')
+# debugging
+# iLUTs = Interpolated_LUTs('LANDSAT/LT5_L1T')
 # iLUTs.download_LUTs()
 # iLUTs.interpolate_LUTs()
 # iLUTs.get()
