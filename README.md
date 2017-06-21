@@ -27,4 +27,8 @@ pip install earthengine-api
 
 ## Usage
 
+It is necessary to authenticate the Earth Engine API (if the first time).
+
+`earthengine authenticate`
+
 see the Jupyter Notebook for example usage
