@@ -27,7 +27,7 @@ pip install earthengine-api
 
 ## Usage
 
-It ifrst time, authenticate the Earth Engine API.
+It if first time, authenticate the Earth Engine API.
 
 `earthengine authenticate`
 
