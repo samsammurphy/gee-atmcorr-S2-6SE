@@ -4,25 +4,26 @@ Atmospheric correction of Sentinel 2 image collections in Google Earth Engine us
 
 ## Installation
 
-### Recommended: Anaconda
+Install [Anaconda](https://www.continuum.io/downloads).
 
-Install [Anaconda](https://www.continuum.io/downloads)
+If necessary, create a python3 environment
 
-Congratulations, you have installed all dependencies!
+`conda create -n my_python3_env`
 
-### Alternative: Manual installation
+and activate it
 
-This option is perhaps for more experienced users..
+`source activate my_python3_env`
 
-Install following executable
+on windows this is just
 
-- [Python 3.x](https://www.python.org/downloads/)
+`activate my_python3_env`
 
-and Python libraries
+then install the Earth Engine API
 
-- [Google Earth Engine Python API](https://developers.google.com/earth-engine/python_install_manual)
-- [Jupyter](http://jupyter.readthedocs.io/en/latest/install.html)
-- scipy
+```
+pip install google-api-python-client
+pip install earthengine-api 
+```
 
 ## Usage
 
