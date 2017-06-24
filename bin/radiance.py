@@ -15,7 +15,7 @@ def radiance_from_TOA(toa, feature):
       solar_zenith = feature['properties']['atmcorr_inputs']['solar_z']
       solar_zenith_correction = math.cos(math.radians(solar_zenith))
       day_of_year = feature['properties']['atmcorr_inputs']['doy']
-      EarthSun_distance = 1 - 0.01672 * math.cos(0.9856 * (day_of_year-4))# http://physics.stackexchange.com/questions/177949/earth-sun-distance-on-a-given-day-of-the-year
+      EarthSun_distance = 1 - 0.01672 * math.cos(math.radians(0.9856 * (day_of_year-4)))# http://physics.stackexchange.com/questions/177949/earth-sun-distance-on-a-given-day-of-the-year
       
       # conversion factor
       multiplier = solar_irradiance * solar_zenith_correction / (math.pi * EarthSun_distance**2)
