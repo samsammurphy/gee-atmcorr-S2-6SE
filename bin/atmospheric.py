@@ -59,16 +59,16 @@ class Atmospheric():
     # H2O datetime is in 6 hour intervals
     H2O_date = Atmospheric.round_date(date,6)
     
-    #filtered water collection
-    water_ic = ee.ImageCollection('NCEP_RE/surface_wv').filterDate(H2O_date)
+    # filtered water collection
+    water_ic = ee.ImageCollection('NCEP_RE/surface_wv').filterDate(H2O_date, H2O_date.advance(1,'month'))
     
-    #water image
+    # water image
     water_img = ee.Image(water_ic.first())
     
-    #water_vapour at target
+    # water_vapour at target
     water = water_img.reduceRegion(reducer=ee.Reducer.mean(), geometry=centroid).get('pr_wtr')
                                         
-    #convert to Py6S units (Google = kg/m^2, Py6S = g/cm^2)
+    # convert to Py6S units (Google = kg/m^2, Py6S = g/cm^2)
     water_Py6S_units = ee.Number(water).divide(10)                                   
     
     return water_Py6S_units
@@ -91,7 +91,7 @@ class Atmospheric():
     def ozone_measurement(centroid,O3_date):
       
       # filtered ozone collection
-      ozone_ic = ee.ImageCollection('TOMS/MERGED').filterDate(O3_date)
+      ozone_ic = ee.ImageCollection('TOMS/MERGED').filterDate(O3_date, O3_date.advance(1,'month'))
       
       # ozone image
       ozone_img = ee.Image(ozone_ic.first())
