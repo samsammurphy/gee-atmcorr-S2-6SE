@@ -87,7 +87,7 @@ class SixS_emulator():
                         self.inputs['aot'],\
                         self.inputs['alt'])
          
-      elliptical_orbit_correction = 0.03275104*math.cos(self.inputs['doy']/59.66638337) + 0.96804905
+      elliptical_orbit_correction = 0.03275104*math.cos(math.radians(self.inputs['doy'])/1.04137484) + 0.96804905
       
       cc[bandName] = list(perihelion * elliptical_orbit_correction)
 
